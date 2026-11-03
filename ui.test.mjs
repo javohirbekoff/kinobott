@@ -1,0 +1,23 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {createUI} from './ui.mjs';
+test('admin authorization, minimal upload, subscription and protected media',async()=>{
+ const db={movies:{},users:{u:{favorites:[]}},channels:[],subscription:false};let saves=0;const messages=[];
+ let subscribed=true;const calls=[];
+ const ui=createUI({db,store:{save(){saves++;},id:x=>x},send:async(...args)=>messages.push(args),api:async(...a)=>calls.push(a),gate:async()=>subscribed,admins:new Set()});
+ const call=(action,admin=true,msg={})=>ui({id:1,uid:'u',admin,user:db.users.u,action,text:msg.text||'',msg,cb:(msg.text||msg.video||msg.photo)?null:{data:action}});
+ await call('manage:toggle',false);assert.equal(saves,0);
+ await call('admin',false,{text:'admin'});assert.equal(messages.length,0);
+ await call('admin',true,{text:'admin'});assert.ok(messages.at(-1)[2].flat().some(b=>b.callback_data==='manage:add'));
+ await call('manage:add');
+ for(const text of ['12','Test film'])await call(text,true,{text});
+ await call('',true,{video:{file_id:'file123'}});
+ assert.ok(!messages.at(-1)[1].includes('undefined'));
+ assert.equal(Object.keys(db.movies).length,0);
+ await call('confirm_movie',false);assert.equal(Object.keys(db.movies).length,0);
+ await call('confirm_movie');assert.equal(db.movies['12'].title,'Test film');assert.equal(saves,1);
+ subscribed=false;await call('12',false,{text:'12'});assert.equal(calls.length,0);
+ subscribed=true;await call('12',false,{text:'12'});assert.equal(calls[0][1].protect_content,true);assert.equal(calls[0][1].video,'file123');
+ await call('/start',false,{text:'/start'});assert.deepEqual(messages.at(-1)[2],[]);
+ await call('manage:delete');await call('12',true,{text:'12'});assert.ok(db.movies['12']);await call('confirm_delete');assert.equal(db.movies['12'],undefined);
+});

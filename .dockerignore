@@ -1,0 +1,10 @@
+.env
+.env.*
+*.log
+*.dump
+*.sql
+data
+*.enc
+*.tmp
+.git
+node_modules
