@@ -1,29 +1,11 @@
-# kinobott
+# kinobott v3 — faqat kinolar doimiy saqlanadi
 
-O‘zbekcha Telegram kino bot. Foydalanuvchi majburiy kanallarga obuna bo‘lib, kino kodini yuboradi. Admin: kod + nom + video bilan kino qo‘shish, o‘chirish, majburiy kanallar va tasdiqlanadigan ommaviy xabar.
+Bot ma’lumotlar bazasiga ulanmaydi. Faqat kino kodi, nomi va Telegram file_id shifrlangan `catalog.enc` faylida saqlanadi. Video Telegram serverida turadi. Foydalanuvchi, kanal, qoralama va xabar navbati faqat operativ xotirada; restartda yo‘qoladi. Eski kutilayotgan Telegram update’lari ishga tushishda tashlanadi.
 
-**Railway sozlash, eski bazani ko‘chirish, maxfiylik va yuklama chegaralari: [RAILWAY.md](RAILWAY.md).**
+Admin: kino qo‘shish/o‘chirish, majburiy kanallar, ommaviy xabar. Adminni ADMIN_IDS belgilaydi, bu muhit sozlamasi restartda saqlanadi. Har restartdan keyin kanallarni qayta qo‘shing. Kanal qo‘shilmaguncha obuna talab qilinmaydi. Ommaviy xabar faqat shu ishga tushishdan beri botdan foydalanganlarga boradi.
 
-## Tez boshlash
+Node.js 22+: `npm ci`, `npm test`, `npm start`. `.env.example` asosida `.env` yarating. Token/kalitni GitHub’ga yubormang. Railway uchun [RAILWAY.md](RAILWAY.md).
 
-Node.js 22+. `.env.example` nusxasini `.env` deb saqlang, token, ADMIN_IDS va 32 baytli base64 DATA_KEY ni to‘ldiring. Haqiqiy .env ni GitHub’ga yubormang. Mavjud baza bo‘lsa DATA_KEY ni o‘zgartirmang.
+pg va crypto.mjs faqat eski PostgreSQL’dan kinolarni bir martalik eksport qilish uchun qolgan. Bot ularni ishlatmaydi. `npm run migrate` endi eksport buyrug‘i: eski bazadan Volume’dagi faylga faqat kinolarni oladi. Eski baza avtomatik o‘chirilmaydi.
 
-```powershell
-npm.cmd ci
-npm.cmd test
-npm.cmd start
-```
-
-DATABASE_URL berilsa PostgreSQL va bardavom navbat ishlaydi. Railway’da DATABASE_URL majburiy. Mahalliy DATABASE_URL bo‘sh bo‘lsa eski shifrlangan fayl saqlash rejimi ishlaydi; bu kichik sinovlar uchun.
-
-## Tuzilma
-
-- `bot.mjs` — polling, obuna, admin ruxsati va ishchilar.
-- `ui.mjs` — sodda tugmali admin panel.
-- `postgres.mjs` — shifrlangan yozuvlar, navbat, tranzaksiya va bitta jarayon qulfi.
-- `crypto.mjs` — AES-256-GCM va HMAC.
-- `telegram.mjs` — tezlik cheklovi va qayta urinishlar.
-- `store.mjs` — eski mahalliy shifrlangan fayl rejimi.
-- `migrate.mjs` — eski fayldan bo‘sh PostgreSQL bazaga ko‘chirish.
-
-Videolar Telegramda; server faqat shifrlangan metadata va vaqtincha navbatni saqlaydi. Bot foydalanuvchi faoliyatini logga chiqarmaydi. Server/kalit egasidan mutlaq maxfiylik, barcha qurilmalarda skrinshot bloklash yoki 100 ming bir paytdagi foydalanuvchiga xatosiz tezkor javob kafolatlanmaydi. Telegram cheklovlari sabab so‘rovlar navbatda kutadi. Tafsilotlar RAILWAY.md ichida.
+Foydalanuvchi faoliyati logga yozilmaydi. SAFE_DIAGNOSTICS=false bo‘lsa dastur xato kodini ham chiqarmaydi. Platformaning texnik loglari alohida. Server va kalit egasidan mutlaq maxfiylik yoki barcha qurilmalarda nusxa olishni taqiqlash kafolatlanmaydi. Restartda navbat yo‘qoladi; bu versiyada bardavom navbat hamda 100 ming bir paytdagi foydalanuvchi kafolati yo‘q.

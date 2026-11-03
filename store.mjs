@@ -10,14 +10,20 @@ export class Store {
   if(existsSync(path)) {
    const b=readFileSync(path); if(b.subarray(0,4).toString()!=='KINO') throw Error('STORE_INVALID');
    const d=createDecipheriv('aes-256-gcm',this.key,b.subarray(4,16));d.setAuthTag(b.subarray(16,32));
-   this.data=JSON.parse(Buffer.concat([d.update(b.subarray(32)),d.final()]).toString());
+   const loaded=JSON.parse(Buffer.concat([d.update(b.subarray(32)),d.final()]).toString());
+   this.data.movies=loaded.movies||{};
+   // Strip legacy users, channels and offsets from the existing encrypted file.
+   this.save();
   }
  }
  id(uid){return createHmac('sha256',this.key).update('user:'+uid).digest('hex');}
  save(){
+  const serialized=JSON.stringify({movies:this.data.movies});
+  if(serialized===this.lastSaved)return;
   const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',this.key,iv);
-  const encrypted=Buffer.concat([c.update(JSON.stringify(this.data)),c.final()]);
+  const encrypted=Buffer.concat([c.update(serialized),c.final()]);
   writeFileSync(this.path+'.tmp',Buffer.concat([Buffer.from('KINO'),iv,c.getAuthTag(),encrypted]),{mode:0o600});
   renameSync(this.path+'.tmp',this.path);
+  this.lastSaved=serialized;
  }
 }

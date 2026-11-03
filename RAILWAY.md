@@ -1,59 +1,19 @@
-# Railway va PostgreSQL — v2
+# Railway v3
 
-## Ishga tushirish
+1. Yangi kodni GitHub’ga push qiling.
+2. Railway’da BOT xizmatiga Volume qo‘shing, mount path `/data`. Bu PostgreSQL Volume’i emas: aynan bot xizmatiga ulangan Volume bo‘lsin. Railway `RAILWAY_VOLUME_MOUNT_PATH`ni avtomatik beradi. Volume bo‘lmasa bot kino yo‘qolishining oldini olish uchun ishga tushmaydi.
+3. Bot Variables: BOT_TOKEN, ADMIN_IDS, oldingi DATA_KEY. SAFE_DIAGNOSTICS=false. DATABASE_URL kerak emas; uni olib tashlang. DATA_DIR=/data qoldirish mumkin, lekin bu o‘zgaruvchining o‘zi Volume yaratmaydi.
+4. Bitta replica ishlating. Kompyuterdagi shu tokenli botni to‘xtating, Deploy qiling.
+5. Telegram’da /start va admin ni tekshiring. Kino qo‘shing, restart qilib kod orqali qayta oling. Kino saqlanadi; foydalanuvchi ro‘yxati va kanallar yo‘qoladi.
 
-1. Railway’da New Project → Deploy from GitHub repo → kinobott ni tanlang.
-2. Shu loyihaga PostgreSQL xizmati qo‘shing. PostgreSQL xizmatining doimiy Volume’i mavjud bo‘lsin. Bot xizmatiga alohida Volume shart emas.
-3. Bot xizmatining Variables bo‘limiga quyidagilarni kiriting:
+DATA_KEY ni almashtirmang. Volume’ni o‘chirsangiz kino kodlari ro‘yxati yo‘qoladi; videolar Telegramda tursa ham kod→video bog‘lanishini qayta kiritish kerak. Volume backup faqat shifrlangan kino katalogini saqlaydi. Eski mahalliy catalog.enc fayli yuklansa, kinolari saqlanadi va eski foydalanuvchi/kanal yozuvlari qayta yozishda olib tashlanadi; oldingi backup nusxalari avtomatik o‘chirilmaydi.
 
-```env
-BOT_TOKEN=BotFather bergan token
-ADMIN_IDS=raqamli Telegram ID
-DATA_KEY=mavjud 32 baytli base64 shifrlash kaliti
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-```
+## Eski PostgreSQL’da kinolar bo‘lsa
 
-PostgreSQL xizmatini boshqacha nomlasangiz, reference variable’dagi `Postgres` o‘rniga shu xizmatni tanlang. Railway private database URL ishlating. Tashqi manzil ishlatilsa sertifikat tekshiruvi yoqiladi; noto‘g‘ri sertifikat bilan ulanish rad etiladi. Token yoki kalitni GitHub’ga yozmang. Railway Variables ochiq matndagi sirlar saqlanadigan joy: loyiha a’zolariga kirishni cheklang.
+PostgreSQL xizmatini avval o‘chirmang. Botni to‘xtating, Volume ulang, eski DATA_KEY va vaqtincha DATABASE_URL bilan Railway xizmatining shell’ida `npm run migrate` bajaring. Bu faqat kino yozuvlarini faylga eksport qiladi, mavjud kodlar to‘qnashsa to‘xtaydi. So‘ng DATABASE_URL ni botdan olib tashlab `node bot.mjs` start buyrug‘ini ishlating. Eksport va kino olish tekshirilgandan keyingina eski PostgreSQL xizmatini hamda kerakmas eski backup’larni o‘zingiz o‘chirishingiz mumkin. Haqiqiy baza bilan eksport bu yerda bajarilmadi.
 
-4. Bitta bot replica qoldiring. Dockerfile avtomatik kutubxonalarni o‘rnatadi va botni ishga tushiradi. Public domain shart emas. Railway sog‘lomlik tekshiruvi `/health` orqali bajariladi.
-5. Shu token bilan kompyuterdagi botni Ctrl+C orqali to‘xtating. So‘ng Railway’da Deploy qiling. Bir xil tokenni ikki joyda ishlatmang. PostgreSQL advisory lock aynan shu bazaga ulangan ikkinchi botni ham to‘xtatadi.
-6. Telegram’da `/start`, admin hisobida `admin` yozing. Kanal qo‘shishdan oldin botni kanalda admin qiling.
-7. PostgreSQL uchun Railway panelida backup yoqing va tiklashni alohida test bazasida sinang. DATABASE_URL va DATA_KEY ni alohida xavfsiz joyda saqlang.
+## Natijalar va cheklovlar
 
-## Eski kinolarni ko‘chirish
+Mahalliy sinov: qayta ochilganda kinolar saqlanadi, users/channels bo‘sh, offset nol; noto‘g‘ri kalit va buzilgan fayl rad etiladi. Telegram admin ruxsati, sodda kino qo‘shish, obuna tekshiruvi, protect_content va maxfiy diagnostika testlari o‘tdi. Railway deploy va haqiqiy Volume restart sinovi hali bajarilmagan.
 
-Railway’da yangi baza ochish kompyuterdagi katalogni avtomatik ko‘chirmaydi. Eski .env va data/catalog.enc faylini o‘chirmang. Botni to‘xtatib, kompyuterdagi loyiha papkasiga yangi kodni o‘rnating. `.env`da oldingi DATA_KEY saqlansin, vaqtincha Railway PostgreSQL tashqi ulanish manzilini DATABASE_URL ga kiriting (sertifikati ishonchli TLS kerak).
-
-```powershell
-npm.cmd ci
-npm.cmd run migrate -- "C:\to‘liq\yo‘l\data\catalog.enc"
-```
-
-Migratsiya faqat bo‘sh katalog va foydalanuvchi bazasiga ishlaydi, eski faylni o‘chirmaydi. Bot ishlayotgan bazaga migratsiya qilinmaydi. Tashqi TLS ulanishi mavjud bo‘lmasa, xuddi shu buyruqni Railway private tarmog‘idagi bir martalik xizmatda bajarish kerak; kalit yoki katalogni GitHub’ga yuklamang. Muvaffaqiyatdan keyin Railway botni ishga tushiring, tekshirib chiqing, kompyuterdagi botni o‘chiq qoldiring.
-
-## Saqlash va maxfiylik
-
-- Video Telegram serverlarida saqlanadi. Bot videoni yuklab olmaydi, Telegram file_id orqali yuboradi.
-- PostgreSQL’da kino kodi/nomi/file_id, kanal sozlamalari va tarqatish uchun foydalanuvchi ID alohida AES-256-GCM shifrlangan yozuvlarda saqlanadi. Indekslar HMAC orqali hosil qilinadi. Navbatdagi so‘rovlar ham shifrlanadi, bajarilgach o‘chiriladi.
-- Jadval nomi, yozuv turi, navbat vaqti, urinish soni kabi operatsion metama’lumotlar shifrlanmaydi. Ular xabar matni, token yoki Telegram ID emas.
-- Bot stdout/stderr’da foydalanuvchi xabarlari, ID, token, xato tafsilotlari yoki faoliyat loglarini chiqarmaydi. Railway build, jarayon va PostgreSQL texnik loglari platforma nazoratida; ularni admin ham hech qachon o‘qiy olmasligi kafolatlanmaydi.
-- Bot admin tugmalari faqat ADMIN_IDS uchun. Railway loyiha egasi, server xotirasi va DATA_KEY’ga kiruvchi shaxs ma’lumotni ochishi mumkin. Telegram ham xabarlarni ko‘radi. Bu end-to-end shifrlangan chat emas.
-- DATA_KEY yo‘qolsa ma’lumot tiklanmaydi. Uni oddiy almashtirish mumkin emas, oldindan qayta shifrlash migratsiyasi zarur. Backup’dan tiklash uchun aynan o‘sha kalit kerak.
-
-## Katta yuklama
-
-So‘rovlar PostgreSQL navbatiga yozilgandan keyingina Telegram offset’i oldinga o‘tadi. 16 ta parallel ishlovchi turli foydalanuvchilarni qayta ishlaydi; bir foydalanuvchining so‘rovlari tartibli bajariladi. Ommaviy xabarlar alohida navbat va 2 ta ishlovchi orqali ketadi. Bir foydalanuvchi uchun kamida 700 ms kutish, jo‘natiladigan xabarlar uchun bir chatga kamida 1100 ms oraliq saqlanadi. Telegram API so‘rovlari konservativ 20/sek tezlik bilan boshlanadi; 429 bo‘lsa server ko‘rsatgan vaqt kutiladi.
-
-Telegram bepul ommaviy xabar uchun taxminan 30/sek chegarasini belgilaydi. Shuning uchun 100 ming foydalanuvchiga darhol javob berish imkoni yo‘q. Ushbu konservativ limitda faqat 100 mingta API so‘rovining o‘zi kamida 83 daqiqa; obuna tekshiruvlari, chat cheklovi, tarmoq va boshqa trafik vaqtni oshiradi. Pullik broadcast avtomatik yoqilmagan.
-
-Qayta ishga tushishda navbatdagi ishlar davom etadi. Telegram yuborishni qabul qilib, bazaga bajarildi belgisi yozilishidan oldin jarayon o‘chsa, ayrim xabar takrorlanishi mumkin (at-least-once). Tahrirlanayotgan, hali tasdiqlanmagan admin shakllari va ommaviy xabar qoralamalari xotirada: restartdan keyin qayta kiritiladi. Uzoq navbatda tugma tasdiqlari eskirishi mumkin.
-
-Katalog va foydalanuvchilar ishchi xotiraga yuklanadi; xotira sarfi foydalanuvchilar soni bilan o‘sadi. Bu bir bot jarayonli navbat arxitekturasi, cheksiz avtomatik masshtablanish emas. 100 ming bir paytdagi haqiqiy foydalanuvchi uchun alohida yuklama sinovi, server o‘lchami, queue lag va PostgreSQL quvvatini kuzatish zarur. Telegram so‘rovlarni cheklangan muddat saqlaydi; uzoq uzilishlar uchun mutlaq yetkazish kafolati yo‘q.
-
-## Tekshirilgan va tekshirilmagan joylar
-
-Mahalliy unit testlar: shifrlash, buzilgan fayl/noto‘g‘ri kalit rad etilishi, admin ruxsati, kino qo‘shish, obuna tekshiruvi va protect_content.
-
-PGlite (PostgreSQL WASM) bilan 100 000 sun’iy foydalanuvchini shifrlab yozish va qayta yuklash, bir yozuvni yangilash, navbat tartibi, retry, restart recovery va noto‘g‘ri kalit sinovi o‘tdi. Bu Railway’dagi real PostgreSQL, tarmoq yoki 100 ming Telegram foydalanuvchisi bilan sinov emas. Railway deploy, haqiqiy restart va backup restore sinovi sozlamalar kiritilgach bajariladi.
-
-Manbalar: https://docs.railway.com/databases/postgresql va https://core.telegram.org/bots/faq
+Kanallarni har restartdan keyin admin qayta qo‘shadi. Shu paytgacha obuna talab qilinmaydi. Ommaviy xabar faqat joriy ishga tushish davomida ko‘ringan foydalanuvchilarga boradi; davom etayotgan tarqatish restartda bekor bo‘ladi. Bot o‘chgan paytdagi kutilayotgan xabarlar yangi startda tashlanadi. Bu talabga mos ravishda doimiy foydalanuvchi bazasi va so‘rov navbati yo‘q.

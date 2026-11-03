@@ -12,9 +12,9 @@ async function main(){
  const token=process.env.BOT_TOKEN;
  const admins=new Set((process.env.ADMIN_IDS||'').split(',').map(x=>x.trim()).filter(x=>/^\d+$/.test(x)));
  if(!token||!admins.size) throw Error('CONFIG');
- if(process.env.RAILWAY_ENVIRONMENT_ID&&!process.env.DATABASE_URL) throw Error('DATABASE_REQUIRED');
- stage='DATABASE';
- const store=process.env.DATABASE_URL?await new (await import('./postgres.mjs')).PostgresStore(process.env.DATABASE_URL,process.env.DATA_KEY).init():new Store(join(process.env.RAILWAY_VOLUME_MOUNT_PATH||process.env.DATA_DIR||'./data','catalog.enc'),process.env.DATA_KEY);
+ if(process.env.RAILWAY_ENVIRONMENT_ID&&!process.env.RAILWAY_VOLUME_MOUNT_PATH) throw Error('VOLUME_REQUIRED');
+ stage='STORAGE';
+ const store=new Store(join(process.env.RAILWAY_VOLUME_MOUNT_PATH||process.env.DATA_DIR||'./data','catalog.enc'),process.env.DATA_KEY);
  const db=store.data,pending=new Map(),rates=new Map();
  const api=telegram(token);
  const send=(id,text,buttons=[[{text:'🏠 Bosh menyu',callback_data:'home'}]])=>api('sendMessage',{chat_id:id,text,reply_markup:{inline_keyboard:buttons},protect_content:true});
@@ -46,25 +46,12 @@ async function main(){
   if(admin&&!cb&&text.startsWith('/broadcast ')){pending.set(uid,{text:text.slice(11,3511),expires:now+300000});return send(id,'Yuboriladigan xabar:\n'+text.slice(11,3511),[[button('✅ Tasdiqlash','broadcast_yes'),button('✖️ Bekor qilish','broadcast_no')]]);}
   if(admin&&action.startsWith('broadcast_')){
    const draft=pending.get(uid);if(action!=='broadcast_yes'||!draft||draft.expires<now){pending.delete(uid);return send(id,'Bekor qilindi.');}
-   if(store.broadcast){const count=await store.broadcast(draft.text,update.update_id);pending.delete(uid);return send(id,`✅ ${count} ta xabar navbatga qo‘shildi.`);}
    pending.delete(uid);
    let sent=0;for(const u of Object.values(db.users)){if(u.chat&&!u.blocked){try{await send(u.chat,draft.text);sent++;}catch{}await sleep(60);}}return send(id,`Yuborildi: ${sent}`);
   }
  }
- stage='TELEGRAM';await api('getMe');await api('deleteWebhook',{drop_pending_updates:false});ready=true;lastPoll=Date.now();stage='RUNNING';
- if(store.enqueue){
-  const worker=async lane=>{while(!stopping){let job;try{job=await store.claim(lane);if(!job){await sleep(300);continue;}
-    if(lane==='update')await handle(job.value);else await send(job.value.chat,job.value.text);
-    await store.save();await store.finish(job.id);
-   }catch(error){if(job){if(error.permanent)await store.finish(job.id);else await store.retry(job);}await sleep(1000);}}};
-  const workers=Array.from({length:16},()=>worker('update'));workers.push(worker('broadcast'),worker('broadcast'));
-  // A worker storage failure terminates silently; Railway restarts and recovers queued work.
-  for(const task of workers)task.catch(error=>fail(error,'DATABASE'));
-  while(!stopping){try{const updates=await api('getUpdates',{offset:db.offset,limit:100,timeout:25,allowed_updates:['message','callback_query']});await store.enqueue(updates);lastPoll=Date.now();}catch{await sleep(3000);}}
-  await Promise.all(workers);await store.close();
- }else{
-  while(!stopping){try{const updates=await api('getUpdates',{offset:db.offset,timeout:25,allowed_updates:['message','callback_query']});lastPoll=Date.now();for(const update of updates){await handle(update);db.offset=update.update_id+1;await store.save();}}catch{await sleep(3000);}}
- }
+ stage='TELEGRAM';await api('getMe');await api('deleteWebhook',{drop_pending_updates:true});ready=true;lastPoll=Date.now();stage='RUNNING';
+ while(!stopping){try{const updates=await api('getUpdates',{offset:db.offset,timeout:25,allowed_updates:['message','callback_query']});lastPoll=Date.now();for(const update of updates){try{await handle(update);}catch{}db.offset=update.update_id+1;}}catch{await sleep(3000);}}
 
 }
 const server=createServer((req,res)=>{res.statusCode=ready&&Date.now()-lastPoll<180000?200:503;res.end(res.statusCode===200?'ok':'unavailable');});
