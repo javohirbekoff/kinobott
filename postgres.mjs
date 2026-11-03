@@ -1,15 +1,16 @@
 import pg from 'pg';
 import {Vault} from './crypto.mjs';
+import {fail} from './diagnostics.mjs';
 export class PostgresStore {
  constructor(url,key){
   this.vault=new Vault(key);const parsed=new URL(url);const internal=parsed.hostname.endsWith('.railway.internal')||['localhost','127.0.0.1','::1'].includes(parsed.hostname);
   if(!internal){for(const field of ['sslmode','sslcert','sslkey','sslrootcert'])parsed.searchParams.delete(field);}
   this.pool=new pg.Pool({connectionString:parsed.toString(),...(!internal?{ssl:{rejectUnauthorized:true}}:{}),max:12,connectionTimeoutMillis:10000,statement_timeout:30000});
-  this.pool.on('error',()=>process.exit(1));this.dirty=new Set();this.chain=Promise.resolve();
+  this.pool.on('error',error=>fail(error,'DATABASE'));this.dirty=new Set();this.chain=Promise.resolve();
  }
  id(uid){return this.vault.id('user:'+uid);}
  async init(){
-  this.lock=await this.pool.connect();this.lock.on('error',()=>process.exit(1));
+  this.lock=await this.pool.connect();this.lock.on('error',error=>fail(error,'DATABASE'));
   const locked=await this.lock.query('SELECT pg_try_advisory_lock(719346281) AS ok');if(!locked.rows[0].ok)throw Error('ALREADY_RUNNING');
   await this.pool.query(`CREATE TABLE IF NOT EXISTS kino_records (kind text NOT NULL, key text NOT NULL, payload bytea NOT NULL, PRIMARY KEY(kind,key));
    CREATE TABLE IF NOT EXISTS kino_jobs (id bigserial PRIMARY KEY, dedup text UNIQUE, lane text NOT NULL, owner text NOT NULL, payload bytea NOT NULL, attempts integer NOT NULL DEFAULT 0, available timestamptz NOT NULL DEFAULT now(), running boolean NOT NULL DEFAULT false);

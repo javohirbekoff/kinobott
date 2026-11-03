@@ -14,7 +14,7 @@ export function telegram(token){
    if(result.ok)return result.result;
    if(result.error_code===429){const wait=Math.max(1,Number(result.parameters?.retry_after)||2)*1000;next=Math.max(next,Date.now()+wait);await sleep(wait);continue;}
    if(result.error_code>=500){await sleep(1000*2**attempt);continue;}
-   const error=Error('API');error.permanent=[400,403].includes(result.error_code);throw error;
+   const error=Error('API');error.status=result.error_code;error.permanent=[400,403].includes(result.error_code);throw error;
   }throw Error('RETRY');
  };
 }
