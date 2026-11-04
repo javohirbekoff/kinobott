@@ -1,12 +1,12 @@
 # Railway v3
 
-## Kanalga kirish so‘rovlarini tasdiqlash
+## Zayafka yuborib kino olish
 
-Kanal sozlamalarida so‘rov yuboriladigan taklif havolasi yarating (Request Admin Approval). Botga kanal admini sifatida Invite Users/can_invite_users huquqini bering. Botning majburiy kanal qo‘shish bosqichida aynan shu https://t.me/+... havolasini kiriting. Oddiy @kanal havolasi har doim qo‘shilish so‘rovi yaratmaydi.
+Bot zayafkani tasdiqlamaydi va rad etmaydi. Sozlangan majburiy kanal uchun yangi chat_join_request kelganda foydalanuvchining maxfiy belgisini xotirada qayd etadi. Foydalanuvchi «Tekshirish»ni bosganda kanal a’zosi bo‘lsa yoki so‘rovi qayd etilgan bo‘lsa, kinolarga kirishi mumkin. Har bir majburiy kanal tekshiriladi. Kanal bloklagan foydalanuvchiga kirish berilmaydi.
 
-Bot sozlangan majburiy kanaldan kelgan chat_join_request xabarini olganda, foydalanuvchi botda tanilgan bo‘lsa yoki sozlangan taklif havolasidan kelgan bo‘lsa, approveChatJoinRequest orqali tasdiqlaydi. Begona kanallarning so‘rovlarini tasdiqlamaydi. Foydalanuvchi «Tekshirish»ni bosganda uning ID’si bilan kutilayotgan eski so‘rovni ham tasdiqlashga urinadi va a’zolikni qayta tekshiradi. Bot barcha eski so‘rovlar ro‘yxatini yuklab olmaydi. So‘rov bo‘lmasa yoki huquq yetmasa kirish ochilmaydi. Kanal bloklagan foydalanuvchilar avtomatik ochilmaydi.
+Kanalda Request Admin Approval yoqilgan taklif havolasini yarating va majburiy kanal uchun shu https://t.me/+... havolasini qo‘ying. Botda Invite Users/can_invite_users huquqi kerak: bu so‘rov yangiliklarini qabul qilish uchun zarur, lekin kod hech qachon approveChatJoinRequest yoki declineChatJoinRequest chaqirmaydi.
 
-Mahalliy testlar o‘tdi; Telegramdagi haqiqiy sinov yangi versiya deploy qilingach bajariladi. Manba: https://core.telegram.org/bots/api#approvechatjoinrequest
+Bot API eski kutilayotgan so‘rovlar ro‘yxatini yuklab bermaydi, foydalanuvchi so‘rovni bekor qilganini ham ishonchli tekshirish imkoni yo‘q. Kirish qarori qayd etilgan so‘rovga asoslanadi, hozirgi pending holati kafolatlanmaydi. So‘rov belgilari oldingi maxfiylik talabi bo‘yicha faqat xotirada: restartdan keyin o‘chadi. Oldingi so‘rov egalari so‘rovini bekor qilib qayta yuborishi kerak. Kino, statistika va kanal sozlamalari esa faylda saqlanadi. Manba: https://core.telegram.org/bots/api#chatjoinrequest
 
 1. Yangi kodni GitHub’ga push qiling.
 2. Railway’da BOT xizmatiga Volume qo‘shing, mount path `/data`. Bu PostgreSQL Volume’i emas: aynan bot xizmatiga ulangan Volume bo‘lsin. Railway `RAILWAY_VOLUME_MOUNT_PATH`ni avtomatik beradi. Volume bo‘lmasa bot kino yo‘qolishining oldini olish uchun ishga tushmaydi.

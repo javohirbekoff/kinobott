@@ -1,21 +1,21 @@
 export function matchesChannel(channel,chat){
  return String(channel.id)===String(chat.id)||(typeof channel.id==='string'&&channel.id.startsWith('@')&&chat.username&&channel.id.toLowerCase()==='@'+chat.username.toLowerCase());
 }
-export async function approveJoinRequest(request,{db,store,api}){
- if(!request?.chat||!request?.from)return false;
- const channel=db.channels.find(c=>matchesChannel(c,request.chat));if(!channel)return false;
- const known=Object.hasOwn(db.users,store.id(request.from.id));
- const fromLink=!!request.invite_link?.invite_link&&request.invite_link.invite_link===channel.url;
- if(!known&&!fromLink)return false;
- await api('approveChatJoinRequest',{chat_id:request.chat.id,user_id:request.from.id});return true;
-}
-export function isMember(member){return ['creator','administrator','member'].includes(member.status)||(member.status==='restricted'&&member.is_member===true);}
-export async function checkOrApprove(api,chatId,userId){
- let member=await api('getChatMember',{chat_id:chatId,user_id:userId});
- if(isMember(member))return true;
- if(member.status==='kicked')return false;
- // A known user's explicit check can approve an older pending request by ID.
- // If there is no pending request, Telegram rejects approval and access stays closed.
- try{await api('approveChatJoinRequest',{chat_id:chatId,user_id:userId});}catch{return false;}
- member=await api('getChatMember',{chat_id:chatId,user_id:userId});return isMember(member);
+export function createJoinRequests({db,store,api}){
+ // Volatile, pseudonymous markers only. No approval or decline API calls.
+ const requests=new Set();
+ const key=(channel,userId)=>JSON.stringify([String(channel.id).toLowerCase(),channel.url,store.id(userId)]);
+ return {
+  remember(request){
+   if(!request?.chat||!request?.from)return false;
+   const channel=db.channels.find(c=>matchesChannel(c,request.chat));if(!channel)return false;
+   requests.add(key(channel,request.from.id));return true;
+  },
+  async allows(channel,userId){
+   const member=await api('getChatMember',{chat_id:channel.id,user_id:userId});
+   if(member.status==='kicked'){requests.delete(key(channel,userId));return false;}
+   if(['creator','administrator','member'].includes(member.status)||(member.status==='restricted'&&member.is_member===true))return true;
+   return requests.has(key(channel,userId));
+  }
+ };
 }

@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {createUI} from './ui.mjs';
 import {telegram} from './telegram.mjs';
 import {fail} from './diagnostics.mjs';
-import {approveJoinRequest,checkOrApprove} from './join-requests.mjs';
+import {createJoinRequests} from './join-requests.mjs';
 
 // No raw errors, Telegram updates, IDs, tokens or message text go to stdout.
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -18,20 +18,21 @@ async function main(){
  const store=new Store(join(process.env.RAILWAY_VOLUME_MOUNT_PATH||process.env.DATA_DIR||'./data','catalog.enc'),process.env.DATA_KEY);
  const db=store.data,pending=new Map(),rates=new Map();
  const api=telegram(token);
+ const joinRequests=createJoinRequests({db,store,api});
  const send=(id,text,buttons=[[{text:'🏠 Bosh menyu',callback_data:'home'}]])=>api('sendMessage',{chat_id:id,text,reply_markup:{inline_keyboard:buttons},protect_content:true});
  const button=(text,data)=>({text,callback_data:data});
  async function gate(id){
   if(!db.channels.length)return true;
   for(const channel of db.channels){
-   let joined;try{joined=await checkOrApprove(api,channel.id,id);}catch{await send(id,'Obunani tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring.');return false;}
+   let joined;try{joined=await joinRequests.allows(channel,id);}catch{await send(id,'Obunani tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring.');return false;}
    if(!joined){
-    await send(id,'Davom etish uchun kanallarga obuna bo‘ling.',[...db.channels.map(c=>[{text:c.title,url:c.url}]),[button('✅ Tekshirish','check')]]);return false;
+    await send(id,'Davom etish uchun kanallarga qo‘shiling yoki kirish so‘rovini yuboring. So‘ng «Tekshirish»ni bosing.',[...db.channels.map(c=>[{text:c.title,url:c.url}]),[button('✅ Tekshirish','check')]]);return false;
    }
   }return true;
  }
  const ui=createUI({db,store,send,api,gate,admins});
  async function handle(update){
-  if(update.chat_join_request){await approveJoinRequest(update.chat_join_request,{db,store,api});return;}
+  if(update.chat_join_request){joinRequests.remember(update.chat_join_request);return;}
   const cb=update.callback_query,msg=update.message||cb?.message,from=cb?.from||update.message?.from;
   if(!msg||!from||msg.chat.type!=='private'||msg.chat.id!==from.id)return;
   const id=from.id,admin=admins.has(String(id)),uid=store.id(id);
