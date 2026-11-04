@@ -1,3 +1,4 @@
+import {recordSubscriber,recordView,statsText} from './stats.mjs';
 export function createUI({db,store,send,api,gate,admins}) {
  const sessions=new Map();
  const b=(text,callback_data)=>({text,callback_data});
@@ -7,16 +8,17 @@ export function createUI({db,store,send,api,gate,admins}) {
  const fields=[['code','🔢 Kino kodini yozing.'],['title','🎬 Kino nomini yozing.'],['file','📤 Kino videosini yoki video faylini yuboring.']];
  function state(uid,s){sessions.set(uid,{...s,expires:Date.now()+1800000});}
  async function home(id,admin){return send(id,'🎬 Kino kodini yuboring.',admin?[[b('⚙️ Admin panel','panel')]]:[]);}
- async function panel(id){return send(id,'⚙️ ADMIN PANEL',[[b('➕ Kino qo‘shish','manage:add'),b('🗑 Kino o‘chirish','manage:delete')],[b('📢 Majburiy kanallar','manage:channels')],[b('📣 Ommaviy xabar','manage:broadcast')],...back]);}
+ async function panel(id){return send(id,'⚙️ ADMIN PANEL',[[b('➕ Kino qo‘shish','manage:add'),b('🗑 Kino o‘chirish','manage:delete')],[b('📢 Majburiy kanallar','manage:channels')],[b('📣 Ommaviy xabar','manage:broadcast'),b('📊 Statistika','manage:stats')],...back]);}
  async function ask(id,s){const [key,prompt]=fields[s.step];return send(id,prompt,[...(['series','poster'].includes(key)?[[b('⏭ O‘tkazish','skip')]]:[]),...cancel]);}
  return async function ui({id,uid,admin,user,action,text,msg,cb}){
   for(const [k,s] of sessions)if(s.expires<Date.now())sessions.delete(k);
   let s=sessions.get(uid);
-  if(['home','/start','/help','check'].includes(action)){sessions.delete(uid);if(!await gate(id))return true;user.chat=id;await store.save();await home(id,admin);return true;}
+  if(['home','/start','/help','check'].includes(action)){sessions.delete(uid);if(!await gate(id))return true;user.chat=id;recordSubscriber(db,uid);await store.save();await home(id,admin);return true;}
   if(action==='panel'||action==='/admin'||(!cb&&text.trim().toLowerCase()==='admin')){if(admin){sessions.delete(uid);await panel(id);}return true;}
   if(action.startsWith('manage:')){
    if(!admin)return true;
-   const kind=action.slice(7);if(!['add','delete','channels','channel','broadcast'].includes(kind))return true;sessions.delete(uid);
+   const kind=action.slice(7);if(!['add','delete','channels','channel','broadcast','stats'].includes(kind))return true;sessions.delete(uid);
+   if(kind==='stats'){await send(id,statsText(db),[[b('🔄 Yangilash','manage:stats')],...adminBack]);return true;}
    if(kind==='channels'){await send(id,'📢 MAJBURIY OBUNA KANALLARI',[...db.channels.map((c,i)=>[b('🗑 '+c.title,'removechannel:'+i)]),[b('➕ Kanal qo‘shish','manage:channel')],...adminBack]);return true;}
    if(kind==='add'){s={kind:'add',step:0,m:{}};state(uid,s);await ask(id,s);return true;}
    const prompts={edit:'✏️ Tahrirlanadigan kino kodini yozing. Ma’lumotlarni qaytadan kiritasiz.',delete:'🗑 O‘chiriladigan kino kodini yozing.',channel:'📢 Kanal ID sini yozing: @kanal_nomi yoki -100 bilan boshlanuvchi raqam.',broadcast:'📣 Tarqatiladigan matnni yozing (3500 belgigacha).',block:'🚫 Telegram raqamli ID sini yozing.',unblock:'✅ Telegram raqamli ID sini yozing.'};
@@ -25,7 +27,7 @@ export function createUI({db,store,send,api,gate,admins}) {
   if(action.startsWith('removechannel:')){if(admin){const i=Number(action.split(':')[1]);db.channels.splice(i,1);if(!db.channels.length)db.subscription=false;await store.save();await panel(id);}return true;}
   if(action==='privacy'){await send(id,'🔐 MAXFIYLIK\n\nMa’lumotlar bazada shifrlanadi. Xabar va qidiruv tarixi logga yozilmaydi. Chat va adminga yozish yo‘q. Telegram xabarlari Telegramda saqlanadi.',[[b('🗑 Ma’lumotlarimni o‘chirish','forget_confirm')],...back]);return true;}
   if(action==='forget_confirm'){await send(id,'Sevimlilar va botdagi shaxsiy sozlamalaringiz o‘chirilsinmi?',[[b('🗑 Ha, o‘chirish','forget_yes')],...back]);return true;}
-  if(action==='forget_yes'){sessions.delete(uid);delete db.users[uid];await store.save();await send(id,'✅ Ma’lumotlaringiz o‘chirildi.',back);return true;}
+  if(action==='forget_yes'){sessions.delete(uid);delete db.users[uid];await store.save();await send(id,'✅ Vaqtinchalik sozlamalaringiz o‘chirildi. Statistik hisob va takroriy hisoblashdan himoya belgisi saqlanadi.',back);return true;}
   if(action==='confirm_movie'||action==='confirm_delete'){
    if(!admin||!s||!['preview','delete_confirm'].includes(s.kind))return true;
    if(action==='confirm_movie'&&s.kind==='preview'){const old=db.movies[s.m.code];db.movies[s.m.code]={...s.m,created:old?.created||Date.now(),views:old?.views||0};}
@@ -50,10 +52,12 @@ export function createUI({db,store,send,api,gate,admins}) {
   if(action==='broadcast_yes'||action==='broadcast_no')return admin?false:true;
   if(!await gate(id))return true;
   user.chat=id;
+  recordSubscriber(db,uid);await store.save();
   const code=cb?'':text;
   if(Object.hasOwn(db.movies,code)){
    const m=db.movies[code];
    await api(m.type==='video'?'sendVideo':'sendDocument',{chat_id:id,[m.type]:m.file,caption:'🎬 '+m.title,protect_content:true});
+   recordView(db);
    await store.save();return true;
   }
   await send(id,code&&!code.startsWith('/')?'Kino topilmadi. Kodni tekshirib qayta yuboring.':'🎬 Kino kodini yuboring.',admin?[[b('⚙️ Admin panel','panel')]]:[]);
