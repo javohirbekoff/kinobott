@@ -1,5 +1,13 @@
 # Railway v3
 
+## Kanalga kirish so‘rovlarini tasdiqlash
+
+Kanal sozlamalarida so‘rov yuboriladigan taklif havolasi yarating (Request Admin Approval). Botga kanal admini sifatida Invite Users/can_invite_users huquqini bering. Botning majburiy kanal qo‘shish bosqichida aynan shu https://t.me/+... havolasini kiriting. Oddiy @kanal havolasi har doim qo‘shilish so‘rovi yaratmaydi.
+
+Bot sozlangan majburiy kanaldan kelgan chat_join_request xabarini olganda, foydalanuvchi botda tanilgan bo‘lsa yoki sozlangan taklif havolasidan kelgan bo‘lsa, approveChatJoinRequest orqali tasdiqlaydi. Begona kanallarning so‘rovlarini tasdiqlamaydi. Foydalanuvchi «Tekshirish»ni bosganda uning ID’si bilan kutilayotgan eski so‘rovni ham tasdiqlashga urinadi va a’zolikni qayta tekshiradi. Bot barcha eski so‘rovlar ro‘yxatini yuklab olmaydi. So‘rov bo‘lmasa yoki huquq yetmasa kirish ochilmaydi. Kanal bloklagan foydalanuvchilar avtomatik ochilmaydi.
+
+Mahalliy testlar o‘tdi; Telegramdagi haqiqiy sinov yangi versiya deploy qilingach bajariladi. Manba: https://core.telegram.org/bots/api#approvechatjoinrequest
+
 1. Yangi kodni GitHub’ga push qiling.
 2. Railway’da BOT xizmatiga Volume qo‘shing, mount path `/data`. Bu PostgreSQL Volume’i emas: aynan bot xizmatiga ulangan Volume bo‘lsin. Railway `RAILWAY_VOLUME_MOUNT_PATH`ni avtomatik beradi. Volume bo‘lmasa bot kino yo‘qolishining oldini olish uchun ishga tushmaydi.
 3. Bot Variables: BOT_TOKEN, ADMIN_IDS, oldingi DATA_KEY. SAFE_DIAGNOSTICS=false. DATABASE_URL kerak emas; uni olib tashlang. DATA_DIR=/data qoldirish mumkin, lekin bu o‘zgaruvchining o‘zi Volume yaratmaydi.

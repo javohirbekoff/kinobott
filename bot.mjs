@@ -4,6 +4,7 @@ import {createServer} from 'node:http';
 import {createUI} from './ui.mjs';
 import {telegram} from './telegram.mjs';
 import {fail} from './diagnostics.mjs';
+import {approveJoinRequest,checkOrApprove} from './join-requests.mjs';
 
 // No raw errors, Telegram updates, IDs, tokens or message text go to stdout.
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -22,14 +23,15 @@ async function main(){
  async function gate(id){
   if(!db.channels.length)return true;
   for(const channel of db.channels){
-   let member;try{member=await api('getChatMember',{chat_id:channel.id,user_id:id});}catch{await send(id,'Obunani tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring.');return false;}
-   if(!['creator','administrator','member'].includes(member.status)&&!(member.status==='restricted'&&member.is_member)){
+   let joined;try{joined=await checkOrApprove(api,channel.id,id);}catch{await send(id,'Obunani tekshirib bo‘lmadi. Keyinroq qayta urinib ko‘ring.');return false;}
+   if(!joined){
     await send(id,'Davom etish uchun kanallarga obuna bo‘ling.',[...db.channels.map(c=>[{text:c.title,url:c.url}]),[button('✅ Tekshirish','check')]]);return false;
    }
   }return true;
  }
  const ui=createUI({db,store,send,api,gate,admins});
  async function handle(update){
+  if(update.chat_join_request){await approveJoinRequest(update.chat_join_request,{db,store,api});return;}
   const cb=update.callback_query,msg=update.message||cb?.message,from=cb?.from||update.message?.from;
   if(!msg||!from||msg.chat.type!=='private'||msg.chat.id!==from.id)return;
   const id=from.id,admin=admins.has(String(id)),uid=store.id(id);
@@ -51,7 +53,7 @@ async function main(){
   }
  }
  stage='TELEGRAM';await api('getMe');await api('deleteWebhook',{drop_pending_updates:true});ready=true;lastPoll=Date.now();stage='RUNNING';
- while(!stopping){try{const updates=await api('getUpdates',{offset:db.offset,timeout:25,allowed_updates:['message','callback_query']});lastPoll=Date.now();for(const update of updates){try{await handle(update);}catch{}db.offset=update.update_id+1;}}catch{await sleep(3000);}}
+ while(!stopping){try{const updates=await api('getUpdates',{offset:db.offset,timeout:25,allowed_updates:['message','callback_query','chat_join_request']});lastPoll=Date.now();for(const update of updates){try{await handle(update);}catch{}db.offset=update.update_id+1;}}catch{await sleep(3000);}}
 
 }
 const server=createServer((req,res)=>{res.statusCode=ready&&Date.now()-lastPoll<180000?200:503;res.end(res.statusCode===200?'ok':'unavailable');});
