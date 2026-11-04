@@ -13,13 +13,15 @@ export class Store {
    const loaded=JSON.parse(Buffer.concat([d.update(b.subarray(32)),d.final()]).toString());
    this.data.movies=loaded.movies||{};
    if(loaded.stats)this.data.stats=loaded.stats;
-   // Strip legacy users, channels and offsets from the existing encrypted file.
+   this.data.channels=Array.isArray(loaded.channels)?loaded.channels:[];
+   this.data.subscription=this.data.channels.length>0;
+   // User delivery lists and polling offsets remain memory-only.
    this.save();
   }
  }
  id(uid){return createHmac('sha256',this.key).update('user:'+uid).digest('hex');}
  save(){
-  const serialized=JSON.stringify({movies:this.data.movies,stats:this.data.stats});
+  const serialized=JSON.stringify({movies:this.data.movies,stats:this.data.stats,channels:this.data.channels});
   if(serialized===this.lastSaved)return;
   const iv=randomBytes(12),c=createCipheriv('aes-256-gcm',this.key,iv);
   const encrypted=Buffer.concat([c.update(serialized),c.final()]);

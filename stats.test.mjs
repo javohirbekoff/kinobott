@@ -8,6 +8,6 @@ test('statistics survive restarts, deduplicate users and roll days at Tashkent m
   assert.equal(dayKey(before),'2026-11-04');assert.equal(dayKey(after),'2026-11-05');
   recordSubscriber(s.data,uid,before);recordSubscriber(s.data,uid,before);recordView(s.data);s.data.channels=[{id:'@example'}];s.save();
   s=new Store(path,key);assert.equal(recordSubscriber(s.data,uid,after),false);recordSubscriber(s.data,s.id(999),after);recordView(s.data);s.save();
-  s=new Store(path,key);assert.equal(s.data.stats.totalSubscribers,2);assert.equal(s.data.stats.totalViews,2);assert.deepEqual(s.data.stats.daily,{'2026-11-04':1,'2026-11-05':1});assert.deepEqual(s.data.channels,[]);assert.deepEqual(s.data.users,{});assert.equal(readFileSync(path).includes(Buffer.from('12345678')),false);
+  s=new Store(path,key);assert.equal(s.data.stats.totalSubscribers,2);assert.equal(s.data.stats.totalViews,2);assert.deepEqual(s.data.stats.daily,{'2026-11-04':1,'2026-11-05':1});assert.deepEqual(s.data.channels,[{id:'@example'}]);assert.deepEqual(s.data.users,{});assert.equal(readFileSync(path).includes(Buffer.from('12345678')),false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
